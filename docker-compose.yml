@@ -1,0 +1,45 @@
+services:
+  fruitop.backend:
+    build:
+      context: ./Fruitop.Backend
+      dockerfile: Dockerfile
+      target: ${BACKEND_STAGE} # Use 'dev' for development and 'prod' for production
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Development}
+      - ConnectionStrings__DefaultConnection=Host=fruitop.database;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+    ports:
+      - "5858:5858"
+    depends_on:
+      - fruitop.database
+    volumes:
+      - ./Fruitop.Backend:/app:rw # Mount source code for hot-reloading in dev
+    command: ${BACKEND_COMMAND:-dotnet watch run --project Fruitop.Api/Fruitop.Api.csproj --urls http://0.0.0.0:5858}
+
+  fruitop.client:
+    build:
+      context: ./Fruitop.Client
+      dockerfile: Dockerfile
+      target: ${CLIENT_STAGE} # Use 'dev' for development and 'prod' for production
+    environment:
+      - VITE_API_URL=http://fruitop.backend:5858 # Point Vite to backend API
+    ports:
+      - "8585:8585" # Development port for Vite dev server
+    depends_on:
+      - fruitop.backend
+    volumes:
+      - ./Fruitop.Client:/app:rw # Mount source code for hot-reloading in dev
+    command: ${CLIENT_COMMAND:-pnpm dev} # Default to Vite dev server for development
+
+  fruitop.database:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fruitop}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yourpassword}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  pgdata:
